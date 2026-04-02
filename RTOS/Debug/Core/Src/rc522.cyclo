@@ -1,0 +1,14 @@
+../Core/Src/rc522.c:11:13:RC522_Select	1
+../Core/Src/rc522.c:15:13:RC522_Unselect	1
+../Core/Src/rc522.c:20:6:RC522_WriteRegister	1
+../Core/Src/rc522.c:31:9:RC522_ReadRegister	1
+../Core/Src/rc522.c:44:6:RC522_SetBitMask	1
+../Core/Src/rc522.c:48:6:RC522_ClearBitMask	1
+../Core/Src/rc522.c:53:6:RC522_Reset	1
+../Core/Src/rc522.c:59:6:RC522_AntennaOn	2
+../Core/Src/rc522.c:66:6:RC522_AntennaOff	1
+../Core/Src/rc522.c:71:6:RC522_Init	1
+../Core/Src/rc522.c:93:9:RC522_ToCard	15
+../Core/Src/rc522.c:161:9:RC522_Request	3
+../Core/Src/rc522.c:176:9:RC522_Anticoll	4
+../Core/Src/rc522.c:200:9:RC522_Check	2

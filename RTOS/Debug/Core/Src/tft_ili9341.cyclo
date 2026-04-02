@@ -1,0 +1,14 @@
+../Core/Src/tft_ili9341.c:13:13:TFT_Select	1
+../Core/Src/tft_ili9341.c:17:13:TFT_Unselect	1
+../Core/Src/tft_ili9341.c:21:13:TFT_DC_Command	1
+../Core/Src/tft_ili9341.c:25:13:TFT_DC_Data	1
+../Core/Src/tft_ili9341.c:29:13:TFT_Reset	1
+../Core/Src/tft_ili9341.c:36:13:TFT_WriteCommand	1
+../Core/Src/tft_ili9341.c:43:13:TFT_WriteData	1
+../Core/Src/tft_ili9341.c:51:13:TFT_SetAddrWindow	1
+../Core/Src/tft_ili9341.c:73:6:TFT_Init	1
+../Core/Src/tft_ili9341.c:98:6:TFT_DrawPixel	3
+../Core/Src/tft_ili9341.c:109:6:TFT_FillScreen	2
+../Core/Src/tft_ili9341.c:125:6:TFT_DrawRect	3
+../Core/Src/tft_ili9341.c:134:6:TFT_DrawChar	7
+../Core/Src/tft_ili9341.c:165:6:TFT_DrawString	2

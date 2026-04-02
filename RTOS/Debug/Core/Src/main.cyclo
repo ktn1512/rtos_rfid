@@ -1,0 +1,16 @@
+../Core/Src/main.c:91:6:TFT_DrawMenu	4
+../Core/Src/main.c:122:9:compare_uid	3
+../Core/Src/main.c:130:5:find_card	3
+../Core/Src/main.c:139:6:add_card	3
+../Core/Src/main.c:149:6:delete_card	3
+../Core/Src/main.c:168:5:main	1
+../Core/Src/main.c:254:6:SystemClock_Config	3
+../Core/Src/main.c:291:13:MX_SPI1_Init	2
+../Core/Src/main.c:327:13:MX_SPI2_Init	2
+../Core/Src/main.c:363:13:MX_USART1_UART_Init	2
+../Core/Src/main.c:394:13:MX_GPIO_Init	1
+../Core/Src/main.c:449:6:UART_Task	4
+../Core/Src/main.c:471:6:RFID_Task	7
+../Core/Src/main.c:533:6:StartDefaultTask	1
+../Core/Src/main.c:550:6:HAL_TIM_PeriodElapsedCallback	2
+../Core/Src/main.c:566:6:Error_Handler	1
