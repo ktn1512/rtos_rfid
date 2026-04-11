@@ -1,0 +1,16 @@
+../Core/Src/tft_ili9341.c:13:13:TFT_Select	8	static
+../Core/Src/tft_ili9341.c:17:13:TFT_Unselect	8	static
+../Core/Src/tft_ili9341.c:21:13:TFT_DC_Command	8	static
+../Core/Src/tft_ili9341.c:25:13:TFT_DC_Data	8	static
+../Core/Src/tft_ili9341.c:29:13:TFT_Reset	8	static
+../Core/Src/tft_ili9341.c:36:13:TFT_WriteCommand	16	static
+../Core/Src/tft_ili9341.c:43:13:TFT_WriteData	16	static
+../Core/Src/tft_ili9341.c:51:13:TFT_SetAddrWindow	32	static
+../Core/Src/tft_ili9341.c:73:6:TFT_Init	24	static
+../Core/Src/tft_ili9341.c:98:6:TFT_DrawPixel	24	static
+../Core/Src/tft_ili9341.c:123:6:TFT_FillScreen	24	static
+../Core/Src/tft_ili9341.c:136:6:TFT_DrawRect	176	static
+../Core/Src/tft_ili9341.c:174:17:UTF8_Decode	24	static
+../Core/Src/tft_ili9341.c:195:12:Font_FindChar	32	static
+../Core/Src/tft_ili9341.c:214:6:TFT_DrawChar	80	dynamic
+../Core/Src/tft_ili9341.c:242:6:TFT_DrawString	40	static
