@@ -51,6 +51,18 @@ TIM_HandleTypeDef htim3;
 
 osThreadId defaultTaskHandle;
 /* USER CODE BEGIN PV */
+uint8_t uid[5];
+uint8_t status;
+
+#define MAX_CARDS 10
+uint8_t card_list[MAX_CARDS][4];
+uint8_t card_count = 0;
+
+char buffer[50];
+
+char password[5] = "1234";
+char input_pass[5];
+
 typedef enum {
 	ACTION_NONE = 0,
 	ACTION_SCAN,
@@ -76,32 +88,24 @@ MenuItem menu_root = { "MỞ KHÓA CỬA RFID", NULL, NULL, NULL, ACTION_NONE };
 
 // LEVEL 1
 MenuItem menu_scan = { "QUẸT THẺ", &menu_root, NULL, NULL, ACTION_SCAN };
-MenuItem menu_pass = { "NHẬP MẬT KHẨU", &menu_root, NULL, NULL, ACTION_PASSWORD };
+MenuItem menu_pass =
+		{ "NHẬP MẬT KHẨU", &menu_root, NULL, NULL, ACTION_PASSWORD };
 MenuItem menu_setting = { "CÀI ĐẶT", &menu_root, NULL, NULL, ACTION_NONE };
 
 // LEVEL 2 (SETTING)
 MenuItem menu_add = { "THÊM THẺ", &menu_setting, NULL, NULL, ACTION_ADD };
-MenuItem menu_delete =
-		{ "XÓA THẺ", &menu_setting, NULL, NULL, ACTION_DELETE };
+MenuItem menu_delete = { "XÓA THẺ", &menu_setting, NULL, NULL, ACTION_DELETE };
 MenuItem menu_change = { "ĐỔI MẬT KHẨU", &menu_setting, NULL, NULL,
 		ACTION_CHANGE_PASS };
 
 char keypad_map[4][4] = { { '1', '4', '7', '*' }, { '2', '5', '8', '0' }, { '3',
 		'6', '9', '#' }, { 'A', 'B', 'C', 'D' } };
 
-uint8_t uid[5];
-uint8_t status;
-
-#define MAX_CARDS 10
-uint8_t card_list[MAX_CARDS][4];
-uint8_t card_count = 0;
-
-char buffer[50];
-
-char password[5] = "1234";
-char input_pass[5];
+uint8_t door_open = 0;
+uint32_t door_time = 0;
 
 osMutexId spiMutex;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -117,6 +121,7 @@ void Keypad_Task(void const *argument);
 osThreadId keypadTaskHandle;
 void RFID_Task(void const *argument);
 uint8_t CheckPassword(void);
+
 osThreadId rfidTaskHandle;
 /* USER CODE END PFP */
 
@@ -196,6 +201,11 @@ void delete_card(uint8_t *uid) {
 	card_count--;
 }
 
+void Servo_SetAngle(uint8_t angle) {
+	uint16_t pulse = 500 + (angle * 2000) / 180;
+	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, pulse);
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -241,7 +251,7 @@ int main(void) {
 	// default
 	current_menu = &menu_root;
 	selected_item = menu_root.child;
-
+	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
 	RC522_Init();
 	HAL_Delay(100);
 
@@ -340,6 +350,7 @@ void SystemClock_Config(void) {
 	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK) {
 		Error_Handler();
 	}
+	HAL_RCC_MCOConfig(RCC_MCO2, RCC_MCO2SOURCE_SYSCLK, RCC_MCODIV_1);
 }
 
 /**
@@ -391,14 +402,15 @@ static void MX_TIM3_Init(void) {
 
 	TIM_ClockConfigTypeDef sClockSourceConfig = { 0 };
 	TIM_MasterConfigTypeDef sMasterConfig = { 0 };
+	TIM_OC_InitTypeDef sConfigOC = { 0 };
 
 	/* USER CODE BEGIN TIM3_Init 1 */
 
 	/* USER CODE END TIM3_Init 1 */
 	htim3.Instance = TIM3;
-	htim3.Init.Prescaler = 0;
+	htim3.Init.Prescaler = 83;
 	htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-	htim3.Init.Period = 65535;
+	htim3.Init.Period = 19999;
 	htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
 	htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
 	if (HAL_TIM_Base_Init(&htim3) != HAL_OK) {
@@ -408,15 +420,27 @@ static void MX_TIM3_Init(void) {
 	if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK) {
 		Error_Handler();
 	}
+	if (HAL_TIM_PWM_Init(&htim3) != HAL_OK) {
+		Error_Handler();
+	}
 	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
 	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
 	if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig)
 			!= HAL_OK) {
 		Error_Handler();
 	}
+	sConfigOC.OCMode = TIM_OCMODE_PWM1;
+	sConfigOC.Pulse = 0;
+	sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+	sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+	if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_3)
+			!= HAL_OK) {
+		Error_Handler();
+	}
 	/* USER CODE BEGIN TIM3_Init 2 */
 
 	/* USER CODE END TIM3_Init 2 */
+	HAL_TIM_MspPostInit(&htim3);
 
 }
 
@@ -475,6 +499,14 @@ static void MX_GPIO_Init(void) {
 	GPIO_InitStruct.Pull = GPIO_PULLUP;
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
 	HAL_GPIO_Init(CS_GPIO_Port, &GPIO_InitStruct);
+
+	/*Configure GPIO pin : PC9 */
+	GPIO_InitStruct.Pin = GPIO_PIN_9;
+	GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	GPIO_InitStruct.Alternate = GPIO_AF0_MCO;
+	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
 	/*Configure GPIO pin : RST_Pin */
 	GPIO_InitStruct.Pin = RST_Pin;
@@ -591,8 +623,9 @@ void Keypad_Task(void const *argument) {
 						Menu_Enter();
 					} else {
 						osMutexWait(spiMutex, osWaitForever);
-						TFT_DrawString(10, 100, "SAI MẬT KHẨU RỒI!!!!", &Font_11x16_times,
-						RED, BLACK);
+						TFT_DrawString(10, 100, "SAI MẬT KHẨU RỒI!!!!",
+								&Font_11x16_times,
+								RED, BLACK);
 						osMutexRelease(spiMutex);
 						osDelay(1000);
 					}
@@ -613,8 +646,9 @@ void Keypad_Task(void const *argument) {
 						// nhập pass mới
 						osMutexWait(spiMutex, osWaitForever);
 						TFT_FillScreen(BLACK);
-						TFT_DrawString(10, 50, "NHẬP MẬT KHẨU MỚI:", &Font_11x16_times,
-						WHITE, BLACK);
+						TFT_DrawString(10, 50, "NHẬP MẬT KHẨU MỚI:",
+								&Font_11x16_times,
+								WHITE, BLACK);
 						osMutexRelease(spiMutex);
 
 						int idx = 0;
@@ -641,8 +675,9 @@ void Keypad_Task(void const *argument) {
 						osDelay(1000);
 					} else {
 						osMutexWait(spiMutex, osWaitForever);
-						TFT_DrawString(10, 100, "SAI MẬT KHẨU RỒI!!!!", &Font_11x16_times,
-						RED, BLACK);
+						TFT_DrawString(10, 100, "SAI MẬT KHẨU RỒI!!!!",
+								&Font_11x16_times,
+								RED, BLACK);
 						osMutexRelease(spiMutex);
 						osDelay(1000);
 					}
@@ -657,20 +692,22 @@ void Keypad_Task(void const *argument) {
 					if (CheckPassword()) {
 
 						osMutexWait(spiMutex, osWaitForever);
+
 						TFT_DrawString(10, 100, "MỞ CỬA!!!", &Font_11x16_times,
 						GREEN, BLACK);
 						osMutexRelease(spiMutex);
 
 						// mở cửa
-						HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
-						osDelay(2000);
-						HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
+						Servo_SetAngle(90);  // mở cửa
+						door_open = 1;
+						door_time = osKernelSysTick();
 
 					} else {
 
 						osMutexWait(spiMutex, osWaitForever);
-						TFT_DrawString(10, 100, "SAI MẬT KHẨU RỒI!!!!", &Font_11x16_times,
-						RED, BLACK);
+						TFT_DrawString(10, 100, "SAI MẬT KHẨU RỒI!!!!",
+								&Font_11x16_times,
+								RED, BLACK);
 						osMutexRelease(spiMutex);
 
 						osDelay(1000);
@@ -693,7 +730,10 @@ void Keypad_Task(void const *argument) {
 			TFT_DrawMenu();
 			osMutexRelease(spiMutex);
 		}
-
+		if (door_open && (osKernelSysTick() - door_time > 5000)) {
+			Servo_SetAngle(0);  // đóng cửa
+			door_open = 0;
+		}
 		osDelay(50);
 	}
 }
@@ -724,7 +764,14 @@ uint8_t CheckPassword(void) {
 void RFID_Task(void const *argument) {
 	for (;;) {
 		uint8_t local_uid[5];
+		Action_t action = GetAction();
 
+		// ❌ không ở SCAN/ADD/DELETE thì bỏ qua
+		if (action != ACTION_SCAN && action != ACTION_ADD
+				&& action != ACTION_DELETE) {
+			osDelay(100);
+			continue;
+		}
 		// đọc thẻ
 		osMutexWait(spiMutex, osWaitForever);
 		uint8_t result = RC522_Check(local_uid);
@@ -739,29 +786,23 @@ void RFID_Task(void const *argument) {
 			TFT_DrawRect(0, 170, 240, 60, BLACK);
 			osMutexRelease(spiMutex);
 
-			Action_t action = GetAction();
-
-			// ❌ không ở SCAN/ADD/DELETE thì bỏ qua
-			if (action != ACTION_SCAN && action != ACTION_ADD
-					&& action != ACTION_DELETE) {
-				osDelay(100);
-				continue;
-			}
 			// ===== ADD CARD =====
 			if (action == ACTION_ADD) {
 				if (index == -1) {
 					add_card(local_uid);
 
 					osMutexWait(spiMutex, osWaitForever);
-					TFT_DrawString(10, 170, "ĐÃ THÊM THẺ", &Font_11x16_times, GREEN,
+					TFT_DrawString(10, 170, "ĐÃ THÊM THẺ", &Font_11x16_times,
+					GREEN,
 					BLACK);
 					osDelay(1000);
 					osMutexRelease(spiMutex);
 
 				} else {
 					osMutexWait(spiMutex, osWaitForever);
-					TFT_DrawString(10, 170, "THẺ NÀY ĐÃ CÓ RỒI!!!", &Font_11x16_times,
-					YELLOW, BLACK);
+					TFT_DrawString(10, 170, "THẺ NÀY ĐÃ CÓ RỒI!!!",
+							&Font_11x16_times,
+							YELLOW, BLACK);
 					osDelay(1000);
 					osMutexRelease(spiMutex);
 				}
@@ -773,7 +814,8 @@ void RFID_Task(void const *argument) {
 					delete_card(local_uid);
 
 					osMutexWait(spiMutex, osWaitForever);
-					TFT_DrawString(10, 170, "ĐÃ XÓA THẺ!!!", &Font_11x16_times, RED,
+					TFT_DrawString(10, 170, "ĐÃ XÓA THẺ!!!", &Font_11x16_times,
+					RED,
 					BLACK);
 					osDelay(1000);
 
@@ -781,8 +823,9 @@ void RFID_Task(void const *argument) {
 
 				} else {
 					osMutexWait(spiMutex, osWaitForever);
-					TFT_DrawString(10, 170, "KHÔNG THẤY GÌ HẾT!!!!", &Font_11x16_times,
-					YELLOW, BLACK);
+					TFT_DrawString(10, 170, "KHÔNG THẤY GÌ HẾT!!!!",
+							&Font_11x16_times,
+							YELLOW, BLACK);
 					osDelay(1000);
 
 					osMutexRelease(spiMutex);
@@ -794,24 +837,27 @@ void RFID_Task(void const *argument) {
 				if (index != -1) {
 
 					osMutexWait(spiMutex, osWaitForever);
-					TFT_DrawString(10, 50, "QUẸT THẺ VÀO", &Font_11x16_times,
-					GREEN, BLACK);
-					osDelay(1000);
 
+					// clear vùng status
+					TFT_DrawRect(0, 170, 240, 60, BLACK);
+
+					// hiển thị trạng thái
+					TFT_DrawString(10, 170, "QUẸT THẺ...", &Font_11x16_times,
+					GREEN, BLACK);
+					HAL_Delay(1000);
 					TFT_DrawString(10, 170, "MỞ CỬA!!!", &Font_11x16_times,
 					GREEN, BLACK);
-					osDelay(1000);
-
+					HAL_Delay(1000);
 					osMutexRelease(spiMutex);
 
-					HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
-					osDelay(2000);
-					HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
-
+					Servo_SetAngle(90);  // mở cửa
+					door_open = 1;
+					door_time = osKernelSysTick();
 				} else {
 					osMutexWait(spiMutex, osWaitForever);
-					TFT_DrawString(10, 170, "KHÔNG CHO VÀO!!!", &Font_11x16_times,
-					RED, BLACK);
+					TFT_DrawString(10, 170, "KHÔNG CHO VÀO!!!",
+							&Font_11x16_times,
+							RED, BLACK);
 					osDelay(1000);
 
 					osMutexRelease(spiMutex);
@@ -844,7 +890,10 @@ void RFID_Task(void const *argument) {
 
 			osMutexRelease(spiMutex);
 		}
-
+		if (door_open && (osKernelSysTick() - door_time > 5000)) {
+			Servo_SetAngle(0);  // đóng cửa
+			door_open = 0;
+		}
 		osDelay(100);
 	}
 }
