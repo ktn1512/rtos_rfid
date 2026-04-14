@@ -31,7 +31,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+#define FLASH_USER_START_ADDR  0x08020000
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -48,6 +48,8 @@
 SPI_HandleTypeDef hspi1;
 
 TIM_HandleTypeDef htim3;
+
+UART_HandleTypeDef huart1;
 
 osThreadId defaultTaskHandle;
 /* USER CODE BEGIN PV */
@@ -104,6 +106,16 @@ char keypad_map[4][4] = { { '1', '4', '7', '*' }, { '2', '5', '8', '0' }, { '3',
 uint8_t door_open = 0;
 uint32_t door_time = 0;
 
+Action_t current_action = ACTION_NONE;
+
+typedef struct {
+	uint8_t count;
+	uint8_t cards[MAX_CARDS][4];
+	char password[5];
+} FlashData;
+
+FlashData flash_data;
+
 osMutexId spiMutex;
 
 /* USER CODE END PV */
@@ -113,6 +125,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_TIM3_Init(void);
+static void MX_USART1_UART_Init(void);
 void StartDefaultTask(void const *argument);
 
 /* USER CODE BEGIN PFP */
@@ -121,6 +134,11 @@ void Keypad_Task(void const *argument);
 osThreadId keypadTaskHandle;
 void RFID_Task(void const *argument);
 uint8_t CheckPassword(void);
+
+void Send_Event(char *event, char *method, uint8_t *uid);
+
+void Flash_Write(void);
+void Flash_Read(void);
 
 osThreadId rfidTaskHandle;
 /* USER CODE END PFP */
@@ -148,6 +166,7 @@ char Keypad_Scan(void) {
 
 	return 0;
 }
+
 char Keypad_GetKey(void) {
 	char key = Keypad_Scan();
 
@@ -238,6 +257,7 @@ int main(void) {
 	MX_GPIO_Init();
 	MX_SPI1_Init();
 	MX_TIM3_Init();
+	MX_USART1_UART_Init();
 	/* USER CODE BEGIN 2 */
 	menu_root.child = &menu_scan;
 
@@ -257,6 +277,7 @@ int main(void) {
 
 	TFT_Init(&hspi1);
 	TFT_FillScreen(BLACK);
+	Flash_Read();
 
 	TFT_DrawMenu();
 
@@ -445,6 +466,37 @@ static void MX_TIM3_Init(void) {
 }
 
 /**
+ * @brief USART1 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_USART1_UART_Init(void) {
+
+	/* USER CODE BEGIN USART1_Init 0 */
+
+	/* USER CODE END USART1_Init 0 */
+
+	/* USER CODE BEGIN USART1_Init 1 */
+
+	/* USER CODE END USART1_Init 1 */
+	huart1.Instance = USART1;
+	huart1.Init.BaudRate = 115200;
+	huart1.Init.WordLength = UART_WORDLENGTH_8B;
+	huart1.Init.StopBits = UART_STOPBITS_1;
+	huart1.Init.Parity = UART_PARITY_NONE;
+	huart1.Init.Mode = UART_MODE_TX_RX;
+	huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+	huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+	if (HAL_UART_Init(&huart1) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN USART1_Init 2 */
+
+	/* USER CODE END USART1_Init 2 */
+
+}
+
+/**
  * @brief GPIO Initialization Function
  * @param None
  * @retval None
@@ -466,7 +518,8 @@ static void MX_GPIO_Init(void) {
 
 	/*Configure GPIO pin Output Level */
 	HAL_GPIO_WritePin(GPIOA,
-	R1_Pin | R2_Pin | R3_Pin | R4_Pin | SDA_Pin | RST_Pin, GPIO_PIN_RESET);
+			R1_Pin | R2_Pin | R3_Pin | R4_Pin | SDA_Pin | RST_Pin,
+			GPIO_PIN_RESET);
 
 	/*Configure GPIO pin Output Level */
 	HAL_GPIO_WritePin(GPIOB, RESET_Pin | DC_Pin | CS_Pin, GPIO_PIN_RESET);
@@ -527,6 +580,59 @@ static void MX_GPIO_Init(void) {
 }
 
 /* USER CODE BEGIN 4 */
+void Flash_Write(void) {
+	HAL_FLASH_Unlock();
+
+	FLASH_EraseInitTypeDef EraseInitStruct;
+	uint32_t SectorError;
+
+	EraseInitStruct.TypeErase = FLASH_TYPEERASE_SECTORS;
+	EraseInitStruct.Sector = FLASH_SECTOR_5;
+	EraseInitStruct.NbSectors = 1;
+	EraseInitStruct.VoltageRange = FLASH_VOLTAGE_RANGE_3;
+
+	HAL_FLASHEx_Erase(&EraseInitStruct, &SectorError);
+
+	// copy dữ liệu vào struct
+	flash_data.count = card_count;
+	memcpy(flash_data.cards, card_list, sizeof(card_list));
+	memcpy(flash_data.password, password, 5);
+
+	uint32_t addr = FLASH_USER_START_ADDR;
+	uint8_t *ptr = (uint8_t*) &flash_data;
+
+	for (uint32_t i = 0; i < sizeof(FlashData); i++) {
+		HAL_FLASH_Program(FLASH_TYPEPROGRAM_BYTE, addr++, ptr[i]);
+	}
+
+	HAL_FLASH_Lock();
+}
+
+void Flash_Read(void) {
+	uint32_t addr = FLASH_USER_START_ADDR;
+	uint8_t *ptr = (uint8_t*) &flash_data;
+
+	for (uint32_t i = 0; i < sizeof(FlashData); i++) {
+		ptr[i] = *(uint8_t*) addr++;
+	}
+
+	// ❗ check dữ liệu hợp lệ
+	if (flash_data.count > MAX_CARDS || flash_data.password[0] == 0xFF) {
+		// dữ liệu chưa từng ghi
+
+		card_count = 0;
+		strcpy(password, "1234");
+
+		Flash_Write();
+		return;
+	}
+
+	// copy ra biến dùng
+	card_count = flash_data.count;
+	memcpy(card_list, flash_data.cards, sizeof(card_list));
+	memcpy(password, flash_data.password, 5);
+}
+
 void Menu_Next(void) {
 	if (selected_item->next)
 		selected_item = selected_item->next;
@@ -589,6 +695,7 @@ void TFT_DrawMenu(void) {
 	// Thêm khoảng trắng vào đuôi để dọn dẹp số cũ
 	sprintf(buf, "Thẻ: %d", card_count);
 	TFT_DrawString(10, 200, buf, &Font_11x16_times, YELLOW, BLACK);
+	TFT_DrawString(10, 210, password, &Font_11x16_times, WHITE, BLACK);
 }
 
 void Keypad_Task(void const *argument) {
@@ -608,7 +715,8 @@ void Keypad_Task(void const *argument) {
 			// ===== ENTER =====
 			else if (key == 'A') {
 
-				Action_t action = GetAction();
+				current_action = GetAction();
+				Action_t action = current_action;
 
 				// ===== VÀO CÀI ĐẶT (cần pass) =====
 				if (selected_item == &menu_setting) {
@@ -666,12 +774,13 @@ void Keypad_Task(void const *argument) {
 							}
 						}
 						password[4] = '\0';
+						Flash_Write();
 
 						osMutexWait(spiMutex, osWaitForever);
 						TFT_DrawString(10, 160, "ĐỔI MẬT KHẨU HOÀN TẤT!!!",
 								&Font_11x16_times, GREEN, BLACK);
 						osMutexRelease(spiMutex);
-
+						Send_Event("PASSWORD_CHANGED", "PASSWORD", NULL);
 						osDelay(1000);
 					} else {
 						osMutexWait(spiMutex, osWaitForever);
@@ -696,8 +805,7 @@ void Keypad_Task(void const *argument) {
 						TFT_DrawString(10, 100, "MỞ CỬA!!!", &Font_11x16_times,
 						GREEN, BLACK);
 						osMutexRelease(spiMutex);
-
-						// mở cửa
+						Send_Event("ACCESS_GRANTED", "PASSWORD", NULL);
 						Servo_SetAngle(90);  // mở cửa
 						door_open = 1;
 						door_time = osKernelSysTick();
@@ -708,6 +816,7 @@ void Keypad_Task(void const *argument) {
 						TFT_DrawString(10, 100, "SAI MẬT KHẨU RỒI!!!!",
 								&Font_11x16_times,
 								RED, BLACK);
+						Send_Event("ACCESS_DENIED", "PASSWORD", NULL);
 						osMutexRelease(spiMutex);
 
 						osDelay(1000);
@@ -722,6 +831,7 @@ void Keypad_Task(void const *argument) {
 			// ===== BACK =====
 			else if (key == 'B') {
 				Menu_Back();
+				current_action = ACTION_NONE;
 			}
 
 			// ===== VẼ MENU =====
@@ -737,6 +847,7 @@ void Keypad_Task(void const *argument) {
 		osDelay(50);
 	}
 }
+
 uint8_t CheckPassword(void) {
 	int idx = 0;
 	char key;
@@ -764,7 +875,7 @@ uint8_t CheckPassword(void) {
 void RFID_Task(void const *argument) {
 	for (;;) {
 		uint8_t local_uid[5];
-		Action_t action = GetAction();
+		Action_t action = current_action;
 
 		// ❌ không ở SCAN/ADD/DELETE thì bỏ qua
 		if (action != ACTION_SCAN && action != ACTION_ADD
@@ -790,12 +901,14 @@ void RFID_Task(void const *argument) {
 			if (action == ACTION_ADD) {
 				if (index == -1) {
 					add_card(local_uid);
+					Flash_Write();
 
 					osMutexWait(spiMutex, osWaitForever);
 					TFT_DrawString(10, 170, "ĐÃ THÊM THẺ", &Font_11x16_times,
 					GREEN,
 					BLACK);
 					osDelay(1000);
+					Send_Event("CARD_ADDED", "RFID", local_uid);
 					osMutexRelease(spiMutex);
 
 				} else {
@@ -812,18 +925,20 @@ void RFID_Task(void const *argument) {
 			else if (action == ACTION_DELETE) {
 				if (index != -1) {
 					delete_card(local_uid);
+					Flash_Write();
 
 					osMutexWait(spiMutex, osWaitForever);
 					TFT_DrawString(10, 170, "ĐÃ XÓA THẺ!!!", &Font_11x16_times,
 					RED,
 					BLACK);
+					Send_Event("CARD_DELETED", "RFID", local_uid);
 					osDelay(1000);
 
 					osMutexRelease(spiMutex);
 
 				} else {
 					osMutexWait(spiMutex, osWaitForever);
-					TFT_DrawString(10, 170, "KHÔNG THẤY GÌ HẾT!!!!",
+					TFT_DrawString(10, 170, "KHÔNG TÌM THẤY !!!!",
 							&Font_11x16_times,
 							YELLOW, BLACK);
 					osDelay(1000);
@@ -847,6 +962,7 @@ void RFID_Task(void const *argument) {
 					HAL_Delay(1000);
 					TFT_DrawString(10, 170, "MỞ CỬA!!!", &Font_11x16_times,
 					GREEN, BLACK);
+					Send_Event("ACCESS_GRANTED", "RFID", local_uid);
 					HAL_Delay(1000);
 					osMutexRelease(spiMutex);
 
@@ -859,7 +975,7 @@ void RFID_Task(void const *argument) {
 							&Font_11x16_times,
 							RED, BLACK);
 					osDelay(1000);
-
+					Send_Event("ACCESS_DENIED", "RFID", local_uid);
 					osMutexRelease(spiMutex);
 
 					osDelay(1000);
@@ -896,6 +1012,21 @@ void RFID_Task(void const *argument) {
 		}
 		osDelay(100);
 	}
+}
+
+void Send_Event(char *event, char *method, uint8_t *uid) {
+	char msg[160];
+
+	if (uid != NULL) {
+		sprintf(msg,
+				"{\"event\":\"%s\",\"method\":\"%s\",\"uid\":\"%02X %02X %02X %02X\",\"card_count\":%d}\n",
+				event, method, uid[0], uid[1], uid[2], uid[3], card_count);
+	} else {
+		sprintf(msg, "{\"event\":\"%s\",\"method\":\"%s\",\"card_count\":%d}\n",
+				event, method, card_count);
+	}
+
+	HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
 }
 /* USER CODE END 4 */
 
