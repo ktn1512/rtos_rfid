@@ -126,7 +126,7 @@ static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_USART1_UART_Init(void);
-void StartDefaultTask(void const *argument);
+void StartDefaultTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
 void TFT_DrawMenu(void);
@@ -139,6 +139,8 @@ void Send_Event(char *event, char *method, uint8_t *uid);
 
 void Flash_Write(void);
 void Flash_Read(void);
+
+void Send_All_Cards(void);
 
 osThreadId rfidTaskHandle;
 /* USER CODE END PFP */
@@ -228,37 +230,38 @@ void Servo_SetAngle(uint8_t angle) {
 /* USER CODE END 0 */
 
 /**
- * @brief  The application entry point.
- * @retval int
- */
-int main(void) {
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
 
-	/* USER CODE BEGIN 1 */
+  /* USER CODE BEGIN 1 */
 
-	/* USER CODE END 1 */
+  /* USER CODE END 1 */
 
-	/* MCU Configuration--------------------------------------------------------*/
+  /* MCU Configuration--------------------------------------------------------*/
 
-	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-	HAL_Init();
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
 
-	/* USER CODE BEGIN Init */
+  /* USER CODE BEGIN Init */
 
-	/* USER CODE END Init */
+  /* USER CODE END Init */
 
-	/* Configure the system clock */
-	SystemClock_Config();
+  /* Configure the system clock */
+  SystemClock_Config();
 
-	/* USER CODE BEGIN SysInit */
+  /* USER CODE BEGIN SysInit */
 
-	/* USER CODE END SysInit */
+  /* USER CODE END SysInit */
 
-	/* Initialize all configured peripherals */
-	MX_GPIO_Init();
-	MX_SPI1_Init();
-	MX_TIM3_Init();
-	MX_USART1_UART_Init();
-	/* USER CODE BEGIN 2 */
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_SPI1_Init();
+  MX_TIM3_Init();
+  MX_USART1_UART_Init();
+  /* USER CODE BEGIN 2 */
 	menu_root.child = &menu_scan;
 
 	menu_scan.next = &menu_pass;
@@ -278,305 +281,319 @@ int main(void) {
 	TFT_Init(&hspi1);
 	TFT_FillScreen(BLACK);
 	Flash_Read();
+	HAL_Delay(500);   // (để ESP kịp boot)
+	Send_All_Cards();
 
 	TFT_DrawMenu();
 
-	/* USER CODE END 2 */
+  /* USER CODE END 2 */
 
-	/* USER CODE BEGIN RTOS_MUTEX */
+  /* USER CODE BEGIN RTOS_MUTEX */
 	/* add mutexes, ... */
 	osMutexDef(spiMutex);
 	spiMutex = osMutexCreate(osMutex(spiMutex));
-	/* USER CODE END RTOS_MUTEX */
+  /* USER CODE END RTOS_MUTEX */
 
-	/* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
 	/* add semaphores, ... */
-	/* USER CODE END RTOS_SEMAPHORES */
+  /* USER CODE END RTOS_SEMAPHORES */
 
-	/* USER CODE BEGIN RTOS_TIMERS */
+  /* USER CODE BEGIN RTOS_TIMERS */
 	/* start timers, add new ones, ... */
-	/* USER CODE END RTOS_TIMERS */
+  /* USER CODE END RTOS_TIMERS */
 
-	/* USER CODE BEGIN RTOS_QUEUES */
+  /* USER CODE BEGIN RTOS_QUEUES */
 	/* add queues, ... */
-	/* USER CODE END RTOS_QUEUES */
+  /* USER CODE END RTOS_QUEUES */
 
-	/* Create the thread(s) */
-	/* definition and creation of defaultTask */
-	osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
-	defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+  /* Create the thread(s) */
+  /* definition and creation of defaultTask */
+  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
+  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
-	/* USER CODE BEGIN RTOS_THREADS */
+  /* USER CODE BEGIN RTOS_THREADS */
 	osThreadDef(keypadTask, Keypad_Task, osPriorityLow, 0, 256);
 	keypadTaskHandle = osThreadCreate(osThread(keypadTask), NULL);
 
 	osThreadDef(rfidTask, RFID_Task, osPriorityNormal, 0, 256);
 	rfidTaskHandle = osThreadCreate(osThread(rfidTask), NULL);
 	/* add threads, ... */
-	/* USER CODE END RTOS_THREADS */
+  /* USER CODE END RTOS_THREADS */
 
-	/* Start scheduler */
-	osKernelStart();
+  /* Start scheduler */
+  osKernelStart();
 
-	/* We should never get here as control is now taken by the scheduler */
+  /* We should never get here as control is now taken by the scheduler */
 
-	/* Infinite loop */
-	/* USER CODE BEGIN WHILE */
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
 	while (1) {
-		/* USER CODE END WHILE */
+    /* USER CODE END WHILE */
 
-		/* USER CODE BEGIN 3 */
+    /* USER CODE BEGIN 3 */
 	}
-	/* USER CODE END 3 */
+  /* USER CODE END 3 */
 }
 
 /**
- * @brief System Clock Configuration
- * @retval None
- */
-void SystemClock_Config(void) {
-	RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
-	RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
-	/** Configure the main internal regulator output voltage
-	 */
-	__HAL_RCC_PWR_CLK_ENABLE();
-	__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE2);
+  /** Configure the main internal regulator output voltage
+  */
+  __HAL_RCC_PWR_CLK_ENABLE();
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE2);
 
-	/** Initializes the RCC Oscillators according to the specified parameters
-	 * in the RCC_OscInitTypeDef structure.
-	 */
-	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-	RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-	RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-	RCC_OscInitStruct.PLL.PLLM = 8;
-	RCC_OscInitStruct.PLL.PLLN = 84;
-	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-	RCC_OscInitStruct.PLL.PLLQ = 4;
-	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
-		Error_Handler();
-	}
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = 8;
+  RCC_OscInitStruct.PLL.PLLN = 84;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = 4;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
 
-	/** Initializes the CPU, AHB and APB buses clocks
-	 */
-	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
-			| RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
-	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
-	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK) {
-		Error_Handler();
-	}
-	HAL_RCC_MCOConfig(RCC_MCO2, RCC_MCO2SOURCE_SYSCLK, RCC_MCODIV_1);
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  HAL_RCC_MCOConfig(RCC_MCO2, RCC_MCO2SOURCE_SYSCLK, RCC_MCODIV_1);
 }
 
 /**
- * @brief SPI1 Initialization Function
- * @param None
- * @retval None
- */
-static void MX_SPI1_Init(void) {
+  * @brief SPI1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SPI1_Init(void)
+{
 
-	/* USER CODE BEGIN SPI1_Init 0 */
+  /* USER CODE BEGIN SPI1_Init 0 */
 
-	/* USER CODE END SPI1_Init 0 */
+  /* USER CODE END SPI1_Init 0 */
 
-	/* USER CODE BEGIN SPI1_Init 1 */
+  /* USER CODE BEGIN SPI1_Init 1 */
 
-	/* USER CODE END SPI1_Init 1 */
-	/* SPI1 parameter configuration*/
-	hspi1.Instance = SPI1;
-	hspi1.Init.Mode = SPI_MODE_MASTER;
-	hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-	hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
-	hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
-	hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
-	hspi1.Init.NSS = SPI_NSS_SOFT;
-	hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
-	hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
-	hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
-	hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-	hspi1.Init.CRCPolynomial = 10;
-	if (HAL_SPI_Init(&hspi1) != HAL_OK) {
-		Error_Handler();
-	}
-	/* USER CODE BEGIN SPI1_Init 2 */
+  /* USER CODE END SPI1_Init 1 */
+  /* SPI1 parameter configuration*/
+  hspi1.Instance = SPI1;
+  hspi1.Init.Mode = SPI_MODE_MASTER;
+  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi1.Init.NSS = SPI_NSS_SOFT;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
+  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi1.Init.CRCPolynomial = 10;
+  if (HAL_SPI_Init(&hspi1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI1_Init 2 */
 
-	/* USER CODE END SPI1_Init 2 */
-
-}
-
-/**
- * @brief TIM3 Initialization Function
- * @param None
- * @retval None
- */
-static void MX_TIM3_Init(void) {
-
-	/* USER CODE BEGIN TIM3_Init 0 */
-
-	/* USER CODE END TIM3_Init 0 */
-
-	TIM_ClockConfigTypeDef sClockSourceConfig = { 0 };
-	TIM_MasterConfigTypeDef sMasterConfig = { 0 };
-	TIM_OC_InitTypeDef sConfigOC = { 0 };
-
-	/* USER CODE BEGIN TIM3_Init 1 */
-
-	/* USER CODE END TIM3_Init 1 */
-	htim3.Instance = TIM3;
-	htim3.Init.Prescaler = 83;
-	htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-	htim3.Init.Period = 19999;
-	htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-	htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-	if (HAL_TIM_Base_Init(&htim3) != HAL_OK) {
-		Error_Handler();
-	}
-	sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-	if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK) {
-		Error_Handler();
-	}
-	if (HAL_TIM_PWM_Init(&htim3) != HAL_OK) {
-		Error_Handler();
-	}
-	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-	if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig)
-			!= HAL_OK) {
-		Error_Handler();
-	}
-	sConfigOC.OCMode = TIM_OCMODE_PWM1;
-	sConfigOC.Pulse = 0;
-	sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-	sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-	if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_3)
-			!= HAL_OK) {
-		Error_Handler();
-	}
-	/* USER CODE BEGIN TIM3_Init 2 */
-
-	/* USER CODE END TIM3_Init 2 */
-	HAL_TIM_MspPostInit(&htim3);
+  /* USER CODE END SPI1_Init 2 */
 
 }
 
 /**
- * @brief USART1 Initialization Function
- * @param None
- * @retval None
- */
-static void MX_USART1_UART_Init(void) {
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
 
-	/* USER CODE BEGIN USART1_Init 0 */
+  /* USER CODE BEGIN TIM3_Init 0 */
 
-	/* USER CODE END USART1_Init 0 */
+  /* USER CODE END TIM3_Init 0 */
 
-	/* USER CODE BEGIN USART1_Init 1 */
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
 
-	/* USER CODE END USART1_Init 1 */
-	huart1.Instance = USART1;
-	huart1.Init.BaudRate = 115200;
-	huart1.Init.WordLength = UART_WORDLENGTH_8B;
-	huart1.Init.StopBits = UART_STOPBITS_1;
-	huart1.Init.Parity = UART_PARITY_NONE;
-	huart1.Init.Mode = UART_MODE_TX_RX;
-	huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-	huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-	if (HAL_UART_Init(&huart1) != HAL_OK) {
-		Error_Handler();
-	}
-	/* USER CODE BEGIN USART1_Init 2 */
+  /* USER CODE BEGIN TIM3_Init 1 */
 
-	/* USER CODE END USART1_Init 2 */
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 83;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 19999;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+  HAL_TIM_MspPostInit(&htim3);
 
 }
 
 /**
- * @brief GPIO Initialization Function
- * @param None
- * @retval None
- */
-static void MX_GPIO_Init(void) {
-	GPIO_InitTypeDef GPIO_InitStruct = { 0 };
-	/* USER CODE BEGIN MX_GPIO_Init_1 */
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
 
-	/* USER CODE END MX_GPIO_Init_1 */
+  /* USER CODE BEGIN USART1_Init 0 */
 
-	/* GPIO Ports Clock Enable */
-	__HAL_RCC_GPIOC_CLK_ENABLE();
-	__HAL_RCC_GPIOH_CLK_ENABLE();
-	__HAL_RCC_GPIOA_CLK_ENABLE();
-	__HAL_RCC_GPIOB_CLK_ENABLE();
+  /* USER CODE END USART1_Init 0 */
 
-	/*Configure GPIO pin Output Level */
-	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+  /* USER CODE BEGIN USART1_Init 1 */
 
-	/*Configure GPIO pin Output Level */
-	HAL_GPIO_WritePin(GPIOA,
-			R1_Pin | R2_Pin | R3_Pin | R4_Pin | SDA_Pin | RST_Pin,
-			GPIO_PIN_RESET);
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 115200;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
 
-	/*Configure GPIO pin Output Level */
-	HAL_GPIO_WritePin(GPIOB, RESET_Pin | DC_Pin | CS_Pin, GPIO_PIN_RESET);
+  /* USER CODE END USART1_Init 2 */
 
-	/*Configure GPIO pin : PC13 */
-	GPIO_InitStruct.Pin = GPIO_PIN_13;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+}
 
-	/*Configure GPIO pins : R1_Pin R2_Pin R3_Pin R4_Pin
-	 SDA_Pin */
-	GPIO_InitStruct.Pin = R1_Pin | R2_Pin | R3_Pin | R4_Pin | SDA_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+/**
+  * @brief GPIO Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_GPIO_Init(void)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  /* USER CODE BEGIN MX_GPIO_Init_1 */
 
-	/*Configure GPIO pins : RESET_Pin DC_Pin */
-	GPIO_InitStruct.Pin = RESET_Pin | DC_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  /* USER CODE END MX_GPIO_Init_1 */
 
-	/*Configure GPIO pin : CS_Pin */
-	GPIO_InitStruct.Pin = CS_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-	GPIO_InitStruct.Pull = GPIO_PULLUP;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-	HAL_GPIO_Init(CS_GPIO_Port, &GPIO_InitStruct);
+  /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOH_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
-	/*Configure GPIO pin : PC9 */
-	GPIO_InitStruct.Pin = GPIO_PIN_9;
-	GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-	GPIO_InitStruct.Alternate = GPIO_AF0_MCO;
-	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13|GPIO_PIN_14, GPIO_PIN_RESET);
 
-	/*Configure GPIO pin : RST_Pin */
-	GPIO_InitStruct.Pin = RST_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-	GPIO_InitStruct.Pull = GPIO_PULLUP;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-	HAL_GPIO_Init(RST_GPIO_Port, &GPIO_InitStruct);
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, R1_Pin|R2_Pin|R3_Pin|R4_Pin
+                          |SDA_Pin|RST_Pin, GPIO_PIN_RESET);
 
-	/*Configure GPIO pins : C1_Pin C2_Pin C3_Pin C4_Pin */
-	GPIO_InitStruct.Pin = C1_Pin | C2_Pin | C3_Pin | C4_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-	GPIO_InitStruct.Pull = GPIO_PULLUP;
-	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, RESET_Pin|DC_Pin|CS_Pin, GPIO_PIN_RESET);
 
-	/* USER CODE BEGIN MX_GPIO_Init_2 */
+  /*Configure GPIO pins : PC13 PC14 */
+  GPIO_InitStruct.Pin = GPIO_PIN_13|GPIO_PIN_14;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-	/* USER CODE END MX_GPIO_Init_2 */
+  /*Configure GPIO pins : R1_Pin R2_Pin R3_Pin R4_Pin
+                           SDA_Pin */
+  GPIO_InitStruct.Pin = R1_Pin|R2_Pin|R3_Pin|R4_Pin
+                          |SDA_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : RESET_Pin DC_Pin */
+  GPIO_InitStruct.Pin = RESET_Pin|DC_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : CS_Pin */
+  GPIO_InitStruct.Pin = CS_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(CS_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PC9 */
+  GPIO_InitStruct.Pin = GPIO_PIN_9;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Alternate = GPIO_AF0_MCO;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : RST_Pin */
+  GPIO_InitStruct.Pin = RST_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(RST_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : C1_Pin C2_Pin C3_Pin C4_Pin */
+  GPIO_InitStruct.Pin = C1_Pin|C2_Pin|C3_Pin|C4_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /* USER CODE BEGIN MX_GPIO_Init_2 */
+
+  /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
@@ -682,20 +699,19 @@ void TFT_DrawMenu(void) {
 			TFT_DrawString(10, y, ">", &Font_11x16_times, GREEN, BLACK);
 			TFT_DrawString(30, y, item->name, &Font_11x16_times, GREEN, BLACK);
 		} else {
-			// IN KHOẢNG TRẮNG ĐỂ XÓA DẤU ">" CŨ
 			TFT_DrawString(10, y, " ", &Font_11x16_times, BLACK, BLACK);
 			TFT_DrawString(30, y, item->name, &Font_11x16_times, WHITE, BLACK);
 		}
-
 		item = item->next;
 		y += 30;
 	}
 
-	char buf[30];
-	// Thêm khoảng trắng vào đuôi để dọn dẹp số cũ
-	sprintf(buf, "Thẻ: %d", card_count);
-	TFT_DrawString(10, 200, buf, &Font_11x16_times, YELLOW, BLACK);
-	TFT_DrawString(10, 210, password, &Font_11x16_times, WHITE, BLACK);
+	// Chỉ hiện số thẻ khi trong cài đặt
+	if (current_menu == &menu_setting) {
+		char buf[40];
+		sprintf(buf, "Số thẻ đã lưu: %d", card_count);
+		TFT_DrawString(10, 200, buf, &Font_11x16_times, YELLOW, BLACK);
+	}
 }
 
 void Keypad_Task(void const *argument) {
@@ -718,22 +734,32 @@ void Keypad_Task(void const *argument) {
 				current_action = GetAction();
 				Action_t action = current_action;
 
-				// ===== VÀO CÀI ĐẶT (cần pass) =====
-				if (selected_item == &menu_setting) {
+				// ===== QUẸT THẺ =====
+				if (action == ACTION_SCAN) {
+					current_action = ACTION_SCAN;
 
 					osMutexWait(spiMutex, osWaitForever);
 					TFT_FillScreen(BLACK);
-					TFT_DrawString(10, 50, "NHẬP MẬT KHẨU:", &Font_11x16_times,
-					WHITE, BLACK);
+					TFT_DrawMenu();
+					TFT_DrawString(10, 170, "VUI LÒNG QUẸT THẺ!", &Font_11x16_times, CYAN, BLACK);
+					osMutexRelease(spiMutex);
+
+					goto skip_draw;
+				}
+
+				// ===== VÀO CÀI ĐẶT (cần pass) =====
+				else if (selected_item == &menu_setting) {
+
+					osMutexWait(spiMutex, osWaitForever);
+					TFT_FillScreen(BLACK);
+					TFT_DrawString(10, 50, "NHẬP MẬT KHẨU:", &Font_11x16_times, WHITE, BLACK);
 					osMutexRelease(spiMutex);
 
 					if (CheckPassword()) {
 						Menu_Enter();
 					} else {
 						osMutexWait(spiMutex, osWaitForever);
-						TFT_DrawString(10, 100, "SAI MẬT KHẨU RỒI!!!!",
-								&Font_11x16_times,
-								RED, BLACK);
+						TFT_DrawString(10, 100, "SAI MẬT KHẨU!", &Font_11x16_times, RED, BLACK);
 						osMutexRelease(spiMutex);
 						osDelay(1000);
 					}
@@ -742,21 +768,16 @@ void Keypad_Task(void const *argument) {
 				// ===== CHANGE PASSWORD =====
 				else if (action == ACTION_CHANGE_PASS) {
 
-					// nhập pass cũ
 					osMutexWait(spiMutex, osWaitForever);
 					TFT_FillScreen(BLACK);
-					TFT_DrawString(10, 50, "MẬT KHẨU CŨ:", &Font_11x16_times,
-					WHITE, BLACK);
+					TFT_DrawString(10, 50, "MẬT KHẨU CŨ:", &Font_11x16_times, WHITE, BLACK);
 					osMutexRelease(spiMutex);
 
 					if (CheckPassword()) {
 
-						// nhập pass mới
 						osMutexWait(spiMutex, osWaitForever);
 						TFT_FillScreen(BLACK);
-						TFT_DrawString(10, 50, "NHẬP MẬT KHẨU MỚI:",
-								&Font_11x16_times,
-								WHITE, BLACK);
+						TFT_DrawString(10, 50, "NHẬP MẬT KHẨU MỚI:", &Font_11x16_times, WHITE, BLACK);
 						osMutexRelease(spiMutex);
 
 						int idx = 0;
@@ -768,8 +789,7 @@ void Keypad_Task(void const *argument) {
 								password[idx++] = k;
 
 								osMutexWait(spiMutex, osWaitForever);
-								TFT_DrawString(10 + idx * 10, 120, "*",
-										&Font_11x16_times, WHITE, BLACK);
+								TFT_DrawString(10 + idx * 10, 120, "*", &Font_11x16_times, WHITE, BLACK);
 								osMutexRelease(spiMutex);
 							}
 						}
@@ -777,52 +797,77 @@ void Keypad_Task(void const *argument) {
 						Flash_Write();
 
 						osMutexWait(spiMutex, osWaitForever);
-						TFT_DrawString(10, 160, "ĐỔI MẬT KHẨU HOÀN TẤT!!!",
-								&Font_11x16_times, GREEN, BLACK);
+						TFT_DrawString(10, 160, "ĐỔI MẬT KHẨU HOÀN TẤT!!!", &Font_11x16_times, GREEN, BLACK);
 						osMutexRelease(spiMutex);
 						Send_Event("PASSWORD_CHANGED", "PASSWORD", NULL);
 						osDelay(1000);
+
 					} else {
 						osMutexWait(spiMutex, osWaitForever);
-						TFT_DrawString(10, 100, "SAI MẬT KHẨU RỒI!!!!",
-								&Font_11x16_times,
-								RED, BLACK);
+						TFT_DrawString(10, 100, "SAI MẬT KHẨU!", &Font_11x16_times, RED, BLACK);
 						osMutexRelease(spiMutex);
 						osDelay(1000);
 					}
-				} else if (action == ACTION_PASSWORD) {
+				}
+
+				// ===== MỞ BẰNG MẬT KHẨU =====
+				else if (action == ACTION_PASSWORD) {
 
 					osMutexWait(spiMutex, osWaitForever);
 					TFT_FillScreen(BLACK);
-					TFT_DrawString(10, 50, "NHẬP MẬT KHẨU:", &Font_11x16_times,
-					WHITE, BLACK);
+					TFT_DrawString(10, 50, "NHẬP MẬT KHẨU:", &Font_11x16_times, WHITE, BLACK);
 					osMutexRelease(spiMutex);
 
 					if (CheckPassword()) {
 
 						osMutexWait(spiMutex, osWaitForever);
-
-						TFT_DrawString(10, 100, "MỞ CỬA!!!", &Font_11x16_times,
-						GREEN, BLACK);
+						TFT_DrawString(10, 100, "CỬA MỞ!", &Font_11x16_times, GREEN, BLACK);
 						osMutexRelease(spiMutex);
+						osDelay(1000);
+
 						Send_Event("ACCESS_GRANTED", "PASSWORD", NULL);
-						Servo_SetAngle(90);  // mở cửa
+						Servo_SetAngle(90);
 						door_open = 1;
 						door_time = osKernelSysTick();
 
+						HAL_GPIO_WritePin(GPIOC, GPIO_PIN_14, GPIO_PIN_SET);
 					} else {
 
 						osMutexWait(spiMutex, osWaitForever);
-						TFT_DrawString(10, 100, "SAI MẬT KHẨU RỒI!!!!",
-								&Font_11x16_times,
-								RED, BLACK);
+						TFT_DrawString(10, 100, "SAI MẬT KHẨU!", &Font_11x16_times, RED, BLACK);
 						Send_Event("ACCESS_DENIED", "PASSWORD", NULL);
 						osMutexRelease(spiMutex);
-
 						osDelay(1000);
 					}
 				}
-				// ===== ENTER bình thường =====
+
+				// ===== THÊM THẺ =====
+				else if (action == ACTION_ADD) {
+					Menu_Enter();
+
+					osMutexWait(spiMutex, osWaitForever);
+					TFT_FillScreen(BLACK);
+					TFT_DrawMenu();
+					TFT_DrawString(10, 170, "CHỜ THÊM THẺ!", &Font_11x16_times, CYAN, BLACK);
+					osMutexRelease(spiMutex);
+
+					goto skip_draw;
+				}
+
+				// ===== XÓA THẺ =====
+				else if (action == ACTION_DELETE) {
+					Menu_Enter();
+
+					osMutexWait(spiMutex, osWaitForever);
+					TFT_FillScreen(BLACK);
+					TFT_DrawMenu();
+					TFT_DrawString(10, 170, "CHỜ XÓA THẺ!", &Font_11x16_times, RED, BLACK);
+					osMutexRelease(spiMutex);
+
+					goto skip_draw;
+				}
+
+				// ===== ENTER BÌNH THƯỜNG =====
 				else {
 					Menu_Enter();
 				}
@@ -839,15 +884,26 @@ void Keypad_Task(void const *argument) {
 			TFT_FillScreen(BLACK);
 			TFT_DrawMenu();
 			osMutexRelease(spiMutex);
+
+			skip_draw:;
 		}
+
+		// ===== ĐÓNG CỬA =====
 		if (door_open && (osKernelSysTick() - door_time > 5000)) {
-			Servo_SetAngle(0);  // đóng cửa
+			Servo_SetAngle(0);
 			door_open = 0;
+			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_14, GPIO_PIN_RESET);
+
+			// Xóa thông báo CỬA MỞ + UID
+			osMutexWait(spiMutex, osWaitForever);
+			TFT_FillScreen(BLACK);
+			TFT_DrawMenu();
+			osMutexRelease(spiMutex);
 		}
+
 		osDelay(50);
 	}
 }
-
 uint8_t CheckPassword(void) {
 	int idx = 0;
 	char key;
@@ -883,6 +939,7 @@ void RFID_Task(void const *argument) {
 			osDelay(100);
 			continue;
 		}
+
 		// đọc thẻ
 		osMutexWait(spiMutex, osWaitForever);
 		uint8_t result = RC522_Check(local_uid);
@@ -891,6 +948,10 @@ void RFID_Task(void const *argument) {
 		if (result == MI_OK) {
 
 			int index = find_card(local_uid);
+
+			char buf_uid[30];
+			sprintf(buf_uid, "%02X %02X %02X %02X",
+					local_uid[0], local_uid[1], local_uid[2], local_uid[3]);
 
 			// clear vùng thông báo
 			osMutexWait(spiMutex, osWaitForever);
@@ -904,20 +965,24 @@ void RFID_Task(void const *argument) {
 					Flash_Write();
 
 					osMutexWait(spiMutex, osWaitForever);
-					TFT_DrawString(10, 170, "ĐÃ THÊM THẺ", &Font_11x16_times,
-					GREEN,
-					BLACK);
+					TFT_DrawString(10, 170, "ĐÃ THÊM THẺ", &Font_11x16_times, GREEN, BLACK);
+					TFT_DrawString(10, 200, buf_uid, &Font_11x16_times, WHITE, BLACK);
 					osDelay(1000);
 					Send_Event("CARD_ADDED", "RFID", local_uid);
-					osMutexRelease(spiMutex);
+
+			        TFT_DrawRect(0, 170, 240, 60, BLACK);
+			        TFT_DrawString(10, 170, "CHỜ THÊM THẺ!", &Font_11x16_times, CYAN, BLACK);
+			        osMutexRelease(spiMutex);
 
 				} else {
 					osMutexWait(spiMutex, osWaitForever);
-					TFT_DrawString(10, 170, "THẺ NÀY ĐÃ CÓ RỒI!!!",
-							&Font_11x16_times,
-							YELLOW, BLACK);
+					TFT_DrawString(10, 170, "THẺ ĐÃ THÊM RỒI!", &Font_11x16_times, YELLOW, BLACK);
+					TFT_DrawString(10, 200, buf_uid, &Font_11x16_times, WHITE, BLACK);
 					osDelay(1000);
-					osMutexRelease(spiMutex);
+
+			        TFT_DrawRect(0, 170, 240, 60, BLACK);
+			        TFT_DrawString(10, 170, "CHỜ THÊM THẺ!", &Font_11x16_times, CYAN, BLACK);
+			        osMutexRelease(spiMutex);
 				}
 			}
 
@@ -928,87 +993,74 @@ void RFID_Task(void const *argument) {
 					Flash_Write();
 
 					osMutexWait(spiMutex, osWaitForever);
-					TFT_DrawString(10, 170, "ĐÃ XÓA THẺ!!!", &Font_11x16_times,
-					RED,
-					BLACK);
+					TFT_DrawString(10, 170, "ĐÃ XÓA THẺ!", &Font_11x16_times, RED, BLACK);
+					TFT_DrawString(10, 200, buf_uid, &Font_11x16_times, WHITE, BLACK);
 					Send_Event("CARD_DELETED", "RFID", local_uid);
 					osDelay(1000);
 
-					osMutexRelease(spiMutex);
+			        TFT_DrawRect(0, 170, 240, 60, BLACK);
+			        TFT_DrawString(10, 170, "CHỜ XÓA THẺ!", &Font_11x16_times, RED, BLACK);
+			        osMutexRelease(spiMutex);
 
 				} else {
 					osMutexWait(spiMutex, osWaitForever);
-					TFT_DrawString(10, 170, "KHÔNG TÌM THẤY !!!!",
-							&Font_11x16_times,
-							YELLOW, BLACK);
+					TFT_DrawString(10, 170, "THẺ CHƯA THÊM!", &Font_11x16_times, YELLOW, BLACK);
+					TFT_DrawString(10, 200, buf_uid, &Font_11x16_times, WHITE, BLACK);
 					osDelay(1000);
 
-					osMutexRelease(spiMutex);
+			        TFT_DrawRect(0, 170, 240, 60, BLACK);
+			        TFT_DrawString(10, 170, "CHỜ XÓA THẺ!", &Font_11x16_times, RED, BLACK);
+			        osMutexRelease(spiMutex);
 				}
 			}
 
-			// ===== SCAN / NORMAL =====
+			// ===== SCAN =====
 			else if (action == ACTION_SCAN) {
 				if (index != -1) {
 
 					osMutexWait(spiMutex, osWaitForever);
 
-					// clear vùng status
 					TFT_DrawRect(0, 170, 240, 60, BLACK);
-
-					// hiển thị trạng thái
-					TFT_DrawString(10, 170, "QUẸT THẺ...", &Font_11x16_times,
-					GREEN, BLACK);
-					HAL_Delay(1000);
-					TFT_DrawString(10, 170, "MỞ CỬA!!!", &Font_11x16_times,
-					GREEN, BLACK);
+					TFT_DrawString(10, 170, "THẺ HỢP LỆ, CỬA MỞ!", &Font_11x16_times, GREEN, BLACK);
+					TFT_DrawString(10, 200, buf_uid, &Font_11x16_times, WHITE, BLACK);
 					Send_Event("ACCESS_GRANTED", "RFID", local_uid);
-					HAL_Delay(1000);
+					osDelay(1000);
 					osMutexRelease(spiMutex);
 
-					Servo_SetAngle(90);  // mở cửa
+					Servo_SetAngle(90);
 					door_open = 1;
 					door_time = osKernelSysTick();
+
+					HAL_GPIO_WritePin(GPIOC, GPIO_PIN_14, GPIO_PIN_SET);
 				} else {
 					osMutexWait(spiMutex, osWaitForever);
-					TFT_DrawString(10, 170, "KHÔNG CHO VÀO!!!",
-							&Font_11x16_times,
-							RED, BLACK);
-					osDelay(1000);
+					TFT_DrawRect(0, 170, 240, 60, BLACK);
+					TFT_DrawString(10, 170, "THẺ KHÔNG HỢP LỆ!", &Font_11x16_times, RED, BLACK);
+					TFT_DrawString(10, 200, buf_uid, &Font_11x16_times, WHITE, BLACK);
 					Send_Event("ACCESS_DENIED", "RFID", local_uid);
-					osMutexRelease(spiMutex);
-
 					osDelay(1000);
+
+				    TFT_DrawRect(0, 170, 240, 60, BLACK);
+				    TFT_DrawString(10, 170, "VUI LÒNG QUẸT THẺ!", &Font_11x16_times, CYAN, BLACK);
+				    osMutexRelease(spiMutex);
 				}
 			}
-
-			// ===== HIỂN THỊ UID =====
-			char buf1[20];
-			char buf2[30];
-
-			// dòng 1: card index
-			sprintf(buf1, "Thẻ: %d", card_count);
-
-			// dòng 2: UID
-			sprintf(buf2, "%02X %02X %02X %02X", local_uid[0], local_uid[1],
-					local_uid[2], local_uid[3]);
-
-			osMutexWait(spiMutex, osWaitForever);
-
-			// clear vùng hiển thị
-			TFT_DrawRect(0, 170, 240, 60, BLACK);
-
-			// vẽ dòng 1
-			TFT_DrawString(10, 170, buf1, &Font_11x16_times, CYAN, BLACK);
-
-			// vẽ dòng 2
-			TFT_DrawString(10, 200, buf2, &Font_11x16_times, WHITE, BLACK);
-
-			osMutexRelease(spiMutex);
 		}
+
 		if (door_open && (osKernelSysTick() - door_time > 5000)) {
-			Servo_SetAngle(0);  // đóng cửa
-			door_open = 0;
+		    Servo_SetAngle(0);
+		    door_open = 0;
+
+		    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_14, GPIO_PIN_RESET);
+
+		    osMutexWait(spiMutex, osWaitForever);
+		    TFT_FillScreen(BLACK);
+		    TFT_DrawMenu();
+		    // Nếu đang ở chế độ quẹt thẻ thì hiện lại thông báo
+		    if (current_action == ACTION_SCAN) {
+		        TFT_DrawString(10, 170, "VUI LÒNG QUẸT THẺ!", &Font_11x16_times, CYAN, BLACK);
+		    }
+		    osMutexRelease(spiMutex);
 		}
 		osDelay(100);
 	}
@@ -1028,6 +1080,31 @@ void Send_Event(char *event, char *method, uint8_t *uid) {
 
 	HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
 }
+
+void Send_All_Cards(void) {
+    char msg[256];
+    char temp[12];
+
+    sprintf(msg, "{\"event\":\"BOOT\",\"method\":\"FLASH\",\"cards\":[");
+
+    for (int i = 0; i < card_count; i++) {
+        sprintf(temp, "\"%02X%02X%02X%02X\"",
+                card_list[i][0],
+                card_list[i][1],
+                card_list[i][2],
+                card_list[i][3]);
+
+        strcat(msg, temp);
+
+        if (i < card_count - 1)
+            strcat(msg, ",");
+    }
+
+    strcat(msg, "]}");
+    strcat(msg, "\n");
+
+    HAL_UART_Transmit(&huart1, (uint8_t*) msg, strlen(msg), 100);
+}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -1037,46 +1114,50 @@ void Send_Event(char *event, char *method, uint8_t *uid) {
  * @retval None
  */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void const *argument) {
-	/* USER CODE BEGIN 5 */
+void StartDefaultTask(void const * argument)
+{
+  /* USER CODE BEGIN 5 */
 	/* Infinite loop */
 	for (;;) {
 		osDelay(1);
 	}
-	/* USER CODE END 5 */
+  /* USER CODE END 5 */
 }
 
 /**
- * @brief  Period elapsed callback in non blocking mode
- * @note   This function is called  when TIM4 interrupt took place, inside
- * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
- * a global variable "uwTick" used as application time base.
- * @param  htim : TIM handle
- * @retval None
- */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-	/* USER CODE BEGIN Callback 0 */
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM4 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
 
-	/* USER CODE END Callback 0 */
-	if (htim->Instance == TIM4) {
-		HAL_IncTick();
-	}
-	/* USER CODE BEGIN Callback 1 */
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM4)
+  {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
 
-	/* USER CODE END Callback 1 */
+  /* USER CODE END Callback 1 */
 }
 
 /**
- * @brief  This function is executed in case of error occurrence.
- * @retval None
- */
-void Error_Handler(void) {
-	/* USER CODE BEGIN Error_Handler_Debug */
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
 	/* User can add his own implementation to report the HAL error return state */
 	__disable_irq();
 	while (1) {
 	}
-	/* USER CODE END Error_Handler_Debug */
+  /* USER CODE END Error_Handler_Debug */
 }
 #ifdef USE_FULL_ASSERT
 /**

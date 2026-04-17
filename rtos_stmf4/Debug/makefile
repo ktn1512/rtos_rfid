@@ -38,34 +38,34 @@ $(wildcard ../makefile.init) \
 $(wildcard ../makefile.targets) \
 
 
-BUILD_ARTIFACT_NAME := rtos_stmf4
+BUILD_ARTIFACT_NAME := rtos_f4
 BUILD_ARTIFACT_EXTENSION := elf
 BUILD_ARTIFACT_PREFIX :=
 BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-rtos_stmf4.elf \
+rtos_f4.elf \
 
 MAP_FILES += \
-rtos_stmf4.map \
+rtos_f4.map \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-rtos_stmf4.list \
+rtos_f4.list \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: rtos_stmf4.elf secondary-outputs
+main-build: rtos_f4.elf secondary-outputs
 
 # Tool invocations
-rtos_stmf4.elf rtos_stmf4.map: $(OBJS) $(USER_OBJS) C:\Users\khanh\Documents\rtos_stmf4\STM32F401RCTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "rtos_stmf4.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\khanh\Documents\rtos_stmf4\STM32F401RCTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="rtos_stmf4.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+rtos_f4.elf rtos_f4.map: $(OBJS) $(USER_OBJS) C:\Users\ksmra\Documents\RTOS\rtos_stmf4\STM32F401RCTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "rtos_f4.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\ksmra\Documents\RTOS\rtos_stmf4\STM32F401RCTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="rtos_f4.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -74,14 +74,14 @@ default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-rtos_stmf4.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "rtos_stmf4.list"
+rtos_f4.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "rtos_f4.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) default.size.stdout rtos_stmf4.elf rtos_stmf4.list rtos_stmf4.map
+	-$(RM) default.size.stdout rtos_f4.elf rtos_f4.list rtos_f4.map
 	-@echo ' '
 
 secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST)
